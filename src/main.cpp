@@ -38,11 +38,12 @@ bool wm_nonblocking = false; //change if this causes issues
   #define NTP_SERVER             "north-america.pool.ntp.org"
   int time_min_prev = 0;
   int time_min = 0;
+  int time_min_set = 0;
   
   WiFiUDP ntpUDP;
   NTP ntp(ntpUDP);
 
-void makeMove(int steps) {
+void makeRelMove(int steps) {
   #ifdef VERBOSE
     Serial.print("Moving "); Serial.print(steps); Serial.println(" steps");
   #endif
@@ -61,6 +62,22 @@ void makeMove(int steps) {
   #ifdef VERBOSE
     Serial.print("New position: "); Serial.println(stepper.currentPosition());
   #endif
+}
+
+void makeAbsMove(int minutes) {
+  int min_elapse = (minutes + 60 - time_min_set) % 60;
+  int position = STEPS_PER_ROTATION *  ((float)min_elapse / 60.0);
+  stepper.move(-20);
+  while (stepper.distanceToGo() > 0) {
+    stepper.run();
+    yield();
+  }
+  stepper.moveTo(position);
+  while (stepper.distanceToGo() > 0) {
+    stepper.run();
+    yield();
+  }
+  stepper.disableOutputs();
 }
 
 void JogFwd(Button2& btn) {
@@ -87,6 +104,7 @@ void ButtonReleased(Button2& btn) {
   stepper.disableOutputs();
   time_min_prev = ntp.minutes();
   time_min = ntp.minutes();
+  time_min_set = ntp.minutes();
 }
 
 void setup() {
@@ -126,6 +144,7 @@ void setup() {
   ntp.begin(NTP_SERVER);
   time_min_prev = ntp.minutes();
   time_min = ntp.minutes();
+  time_min_set = ntp.minutes();
 
   // Setup Motors
   #ifdef VERBOSE
@@ -175,6 +194,7 @@ void loop() {
       Serial.print("Minute: "); Serial.println(time_min);
     #endif
     
+    /* Relative movement
     int mins = 0;
     mins = (time_min + 60 - time_min_prev) % 60;
     int pos = STEPS_PER_MINUTE * mins;
@@ -182,7 +202,14 @@ void loop() {
     if (time_min % 3 > 0) {
       pos = pos + 1;
     }
-    makeMove(pos);
+    makeRelMove(pos);
+    */
+
+    // Absolute Movement
+    makeAbsMove(time_min);
     time_min_prev = time_min;
+    if (time_min == time_min_set) {
+      stepper.setCurrentPosition(0);
+    }
   }
 }
