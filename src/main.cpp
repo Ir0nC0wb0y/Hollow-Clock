@@ -12,7 +12,10 @@ bool wm_nonblocking = false; //change if this causes issues
 
 // Clock parameters
   // 4096 * 110 / 8 = 56320
-  #define STEPS_PER_ROTATION        56320 // steps for a full turn of minute rotor
+  #define STEPPER_RATIO             63.68395
+  #define STEPPER_ROTATION          64
+  #define GEAR_RATIO                110 / 8
+  #define STEPS_PER_ROTATION        STEPPER_RATIO * STEPPER_ROTATION * GEAR_RATIO // steps for a full turn of minute rotor
   #define STEPS_PER_MINUTE          STEPS_PER_ROTATION / 60
 
 // Motors
@@ -44,7 +47,7 @@ void makeMove(int steps) {
     Serial.print("Moving "); Serial.print(steps); Serial.println(" steps");
   #endif
   int curPos = stepper.currentPosition();
-  stepper.moveTo(curPos-20);        // back off to reduce starting load
+  stepper.moveTo(curPos-20);           // back off to reduce starting load
   while (stepper.distanceToGo() > 0) {
     stepper.run();
     yield();
@@ -64,18 +67,21 @@ void JogFwd(Button2& btn) {
   // Use to jog clock forward
   Serial.println("Forward button pushed");
   stepper.move(12*STEPS_PER_ROTATION);
-  stepper.setMaxSpeed(STEPPER_SPEED*2);
+  stepper.setMaxSpeed(1000);
+  stepper.setAcceleration(100);
 }
 
 void JogRvs(Button2& btn) {
   // Use to jog clock backward
   Serial.println("Reverse button pushed");
   stepper.move(-12*STEPS_PER_ROTATION);
-  stepper.setMaxSpeed(STEPPER_SPEED*2);
+  stepper.setMaxSpeed(1000);
+  stepper.setAcceleration(100);
 }
 
 void ButtonReleased(Button2& btn) {
   stepper.setMaxSpeed(STEPPER_SPEED);
+  stepper.setAcceleration(STEPPER_ACCEL);
   stepper.stop();
   stepper.setCurrentPosition(0);
   stepper.disableOutputs();
@@ -114,7 +120,7 @@ void setup() {
   #ifdef VERBOSE
     Serial.println("Setting up NTP");
   #endif
-  ntp.updateInterval(900000); // set to update from ntp server every 900 seconds, or 15 minutes
+  ntp.updateInterval(NTP_UPDATE_INT); // set to update from ntp server every 900 seconds, or 15 minutes
   ntp.ruleDST("CDT", Second, Sun, Mar, 2, -300);
   ntp.ruleSTD("CST",  First, Sun, Nov, 3, -360);
   ntp.begin(NTP_SERVER);
@@ -170,11 +176,7 @@ void loop() {
     #endif
     
     int mins = 0;
-    if (time_min < time_min_prev) {
-      mins = time_min + 60 - time_min_prev;
-    } else {
-      mins = time_min - time_min_prev;
-    }
+    mins = (time_min + 60 - time_min_prev) % 60;
     int pos = STEPS_PER_MINUTE * mins;
     // add one extra steps every 2 out of 3 minutes
     if (time_min % 3 > 0) {
