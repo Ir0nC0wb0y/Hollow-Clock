@@ -5,7 +5,7 @@
 #include <Button2.h>
 
 // Use this for Serial communication, comment for silent operation
-#define VERBOSE
+//#define VERBOSE
 
 WiFiManager wm;
 bool wm_nonblocking = false; //change if this causes issues
