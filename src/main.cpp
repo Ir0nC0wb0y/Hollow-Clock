@@ -35,10 +35,9 @@ bool wm_nonblocking = false; //change if this causes issues
   #define NTP_SERVER             "north-america.pool.ntp.org"
   int time_min_prev = 0;
   int time_min = 0;
-
-
-WiFiUDP ntpUDP;
-NTP ntp(ntpUDP);
+  
+  WiFiUDP ntpUDP;
+  NTP ntp(ntpUDP);
 
 void makeMove(int steps) {
   #ifdef VERBOSE
