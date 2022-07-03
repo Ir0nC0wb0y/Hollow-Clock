@@ -79,6 +79,8 @@ void ButtonReleased(Button2& btn) {
   stepper.stop();
   stepper.setCurrentPosition(0);
   stepper.disableOutputs();
+  time_min_prev = ntp.minutes();
+  time_min = ntp.minutes();
 }
 
 void setup() {
@@ -167,7 +169,13 @@ void loop() {
       Serial.print("Minute: "); Serial.println(time_min);
     #endif
     
-    int pos = STEPS_PER_MINUTE * (time_min - time_min_prev);
+    int mins = 0;
+    if (time_min < time_min_prev) {
+      mins = time_min + 60 - time_min_prev;
+    } else {
+      mins = time_min - time_min_prev;
+    }
+    int pos = STEPS_PER_MINUTE * mins;
     // add one extra steps every 2 out of 3 minutes
     if (time_min % 3 > 0) {
       pos = pos + 1;
