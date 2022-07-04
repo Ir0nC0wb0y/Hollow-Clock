@@ -5,17 +5,18 @@
 #include <Button2.h>
 
 // Use this for Serial communication, comment for silent operation
-//#define VERBOSE
+#define VERBOSE
 
 WiFiManager wm;
 bool wm_nonblocking = false; //change if this causes issues
 
 // Clock parameters
   // 4096 * 110 / 8 = 56320
-  #define STEPPER_RATIO             63.68395
-  #define STEPPER_ROTATION          64
-  #define GEAR_RATIO                110 / 8
-  #define STEPS_PER_ROTATION        STEPPER_RATIO * STEPPER_ROTATION * GEAR_RATIO // steps for a full turn of minute rotor
+  //#define STEPPER_RATIO             63.68395
+  //#define STEPPER_ROTATION          64
+  //#define GEAR_RATIO                110 / 8
+  //#define STEPS_PER_ROTATION        STEPPER_RATIO * STEPPER_ROTATION * GEAR_RATIO // steps for a full turn of minute rotor
+  #define STEPS_PER_ROTATION        56440
   #define STEPS_PER_MINUTE          STEPS_PER_ROTATION / 60
 
 // Motors
@@ -28,6 +29,7 @@ bool wm_nonblocking = false; //change if this causes issues
 // Buttons
   #define BUTTON1      D3     // forward
   #define BUTTON2      D2     // Reverse
+  bool hr_jog = false;
   Button2 button_fwd;
   Button2 button_rvs;
 
@@ -42,27 +44,6 @@ bool wm_nonblocking = false; //change if this causes issues
   
   WiFiUDP ntpUDP;
   NTP ntp(ntpUDP);
-
-void makeRelMove(int steps) {
-  #ifdef VERBOSE
-    Serial.print("Moving "); Serial.print(steps); Serial.println(" steps");
-  #endif
-  int curPos = stepper.currentPosition();
-  stepper.moveTo(curPos-20);           // back off to reduce starting load
-  while (stepper.distanceToGo() > 0) {
-    stepper.run();
-    yield();
-  }
-  stepper.moveTo(curPos + steps + 20); // make move plus difference from previous
-  while (stepper.distanceToGo() > 0) {
-    stepper.run();
-    yield();
-  }
-  stepper.disableOutputs();
-  #ifdef VERBOSE
-    Serial.print("New position: "); Serial.println(stepper.currentPosition());
-  #endif
-}
 
 void makeAbsMove(int minutes) {
   int min_elapse = (minutes + 60 - time_min_set) % 60;
@@ -83,28 +64,60 @@ void makeAbsMove(int minutes) {
 void JogFwd(Button2& btn) {
   // Use to jog clock forward
   Serial.println("Forward button pushed");
-  stepper.move(12*STEPS_PER_ROTATION);
-  stepper.setMaxSpeed(1000);
-  stepper.setAcceleration(100);
+  stepper.setCurrentPosition(0);
+  stepper.moveTo(12*STEPS_PER_ROTATION);
+  stepper.setMaxSpeed(STEPPER_SPEED * 2);
+  stepper.setAcceleration(STEPPER_ACCEL * 2);
 }
 
 void JogRvs(Button2& btn) {
   // Use to jog clock backward
   Serial.println("Reverse button pushed");
-  stepper.move(-12*STEPS_PER_ROTATION);
-  stepper.setMaxSpeed(1000);
-  stepper.setAcceleration(100);
+  stepper.setCurrentPosition(0);
+  stepper.moveTo(-12*STEPS_PER_ROTATION);
+  stepper.setMaxSpeed(STEPPER_SPEED * 2);
+  stepper.setAcceleration(STEPPER_ACCEL * 2);
+}
+
+void JogHr(Button2& btn) {
+  // Use to jog clock backward
+  Serial.println("Jog an Hour");
+  stepper.setCurrentPosition(0);
+  stepper.moveTo(STEPS_PER_ROTATION);
+  stepper.setMaxSpeed(STEPPER_SPEED * 2);
+  stepper.setAcceleration(STEPPER_ACCEL);
+  hr_jog = true;
 }
 
 void ButtonReleased(Button2& btn) {
+  Serial.print("Moved "); Serial.print(stepper.currentPosition()); Serial.println(" steps");
+  stepper.setCurrentPosition(0);
+  //stepper.stop();
+  stepper.moveTo(0);
   stepper.setMaxSpeed(STEPPER_SPEED);
   stepper.setAcceleration(STEPPER_ACCEL);
-  stepper.stop();
-  stepper.setCurrentPosition(0);
   stepper.disableOutputs();
   time_min_prev = ntp.minutes();
   time_min = ntp.minutes();
   time_min_set = ntp.minutes();
+}
+
+void HandleTime() {
+  time_min = ntp.minutes();
+
+  if(time_min_prev == time_min) {
+    return;
+  }
+  #ifdef VERBOSE
+    Serial.print("Minute: "); Serial.println(time_min);
+  #endif
+
+  // Absolute Movement
+  makeAbsMove(time_min);
+  time_min_prev = time_min;
+  if (time_min == time_min_set) {
+    stepper.setCurrentPosition(0);
+  }
 }
 
 void setup() {
@@ -158,10 +171,12 @@ void setup() {
     Serial.println("Setting up buttons");
   #endif
   button_fwd.begin(BUTTON1);
-  button_fwd.setClickHandler(JogFwd);
+  //button_fwd.setPressedHandler(JogFwd);
+  button_fwd.setLongClickDetectedHandler(JogFwd);
   button_fwd.setReleasedHandler(ButtonReleased);
+  button_fwd.setDoubleClickHandler(JogHr);
   button_rvs.begin(BUTTON2);
-  button_rvs.setClickHandler(JogRvs);
+  button_rvs.setLongClickDetectedHandler(JogRvs);
   button_rvs.setReleasedHandler(ButtonReleased);
   
   #ifdef VERBOSE
@@ -170,46 +185,19 @@ void setup() {
 }
 
 void loop() {
+  ntp.update();
   button_fwd.loop();
   button_rvs.loop();
-  if (button_fwd.isPressed() || button_rvs.isPressed()) {
-    if (button_fwd.isPressed()) {
-      stepper.move(STEPS_PER_MINUTE);
-    }
-    if (button_rvs.isPressed()) {
-      stepper.move(-1*STEPS_PER_MINUTE);
-    }
-    stepper.run();
-
-  } else {
-    // Run based on time
-    ntp.update();
-    
+  stepper.run();
+  if (hr_jog && stepper.distanceToGo() == 0) {
+    stepper.setCurrentPosition(0);
+    hr_jog = false;
+    time_min_prev = ntp.minutes();
     time_min = ntp.minutes();
-
-    if(time_min_prev == time_min) {
-      return;
-    }
-    #ifdef VERBOSE
-      Serial.print("Minute: "); Serial.println(time_min);
-    #endif
-    
-    /* Relative movement
-    int mins = 0;
-    mins = (time_min + 60 - time_min_prev) % 60;
-    int pos = STEPS_PER_MINUTE * mins;
-    // add one extra steps every 2 out of 3 minutes
-    if (time_min % 3 > 0) {
-      pos = pos + 1;
-    }
-    makeRelMove(pos);
-    */
-
-    // Absolute Movement
-    makeAbsMove(time_min);
-    time_min_prev = time_min;
-    if (time_min == time_min_set) {
-      stepper.setCurrentPosition(0);
-    }
+    time_min_set = ntp.minutes();
+    stepper.disableOutputs();
+  }
+  if (stepper.distanceToGo() == 0) {
+    HandleTime();
   }
 }
