@@ -16,7 +16,7 @@ bool wm_nonblocking = false; //change if this causes issues
   //#define STEPPER_ROTATION          64
   //#define GEAR_RATIO                110 / 8
   //#define STEPS_PER_ROTATION        STEPPER_RATIO * STEPPER_ROTATION * GEAR_RATIO // steps for a full turn of minute rotor
-  #define STEPS_PER_ROTATION        56440
+  #define STEPS_PER_ROTATION        57273
   #define STEPS_PER_MINUTE          STEPS_PER_ROTATION / 60
 
 // Motors
