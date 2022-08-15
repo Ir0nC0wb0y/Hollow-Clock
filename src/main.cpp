@@ -21,7 +21,7 @@ bool wm_nonblocking = false; //change if this causes issues
 
 // Motors
   #define STEPPER_SPEED             800   // steps/s
-  #define STEPPER_ACCEL             200   // steps/s2
+  #define STEPPER_ACCEL             400   // steps/s2
   #define HALFSTEP 8
   #define FULLSTEP 4
   AccelStepper stepper(HALFSTEP, D5, D7, D6, D8);
@@ -53,11 +53,11 @@ bool wm_nonblocking = false; //change if this causes issues
 void makeAbsMove(int minutes) {
   int min_elapse = (minutes + 60 - time_min_set) % 60;
   int position = STEPS_PER_ROTATION *  ((float)min_elapse / 60.0);
-  stepper.move(-20);
-  while (stepper.distanceToGo() > 0) {
-    stepper.run();
-    yield();
-  }
+  //stepper.move(-20);
+  //while (stepper.distanceToGo() > 0) {
+  //  stepper.run();
+  //  yield();
+  //}
   stepper.moveTo(position);
   while (stepper.distanceToGo() > 0) {
     stepper.run();
@@ -106,11 +106,6 @@ void ButtonReleased(Button2& btn) {
   time_min = ntp.minutes();
   time_min_set = ntp.minutes();
 }
-
-/*IRAM_ATTR void EndstopTrigger() {
-  end_trig = true;
-  Serial.println("Endstop Triggered!");
-}*/
 
 void Homing() {
   Serial.println("Running Home Process");
