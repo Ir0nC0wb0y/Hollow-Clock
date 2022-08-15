@@ -20,8 +20,8 @@ bool wm_nonblocking = false; //change if this causes issues
   #define STEPS_PER_MINUTE          STEPS_PER_ROTATION / 60
 
 // Motors
-  #define STEPPER_SPEED             400   // steps/s
-  #define STEPPER_ACCEL             400   // steps/s2
+  #define STEPPER_SPEED             800   // steps/s
+  #define STEPPER_ACCEL             200   // steps/s2
   #define HALFSTEP 8
   #define FULLSTEP 4
   AccelStepper stepper(HALFSTEP, D5, D7, D6, D8);
@@ -32,6 +32,11 @@ bool wm_nonblocking = false; //change if this causes issues
   bool hr_jog = false;
   Button2 button_fwd;
   Button2 button_rvs;
+
+// End Stop
+  #define ENDSTOP             D4
+  #define ENDSTOP_OFFSET   28211     // Steps from minute 0 to forward endstop trigger
+  bool end_trig = false;
 
 // Time Keeping (NTP)
   long utcOffsetInSeconds_DST  = -18000;
@@ -102,6 +107,35 @@ void ButtonReleased(Button2& btn) {
   time_min_set = ntp.minutes();
 }
 
+/*IRAM_ATTR void EndstopTrigger() {
+  end_trig = true;
+  Serial.println("Endstop Triggered!");
+}*/
+
+void Homing() {
+  Serial.println("Running Home Process");
+  //stepper.move(STEPS_PER_ROTATION);
+  stepper.setSpeed(STEPPER_SPEED);
+  int endstop_read = 1;
+  while (endstop_read == 1) {
+    stepper.runSpeed();
+    yield();
+    endstop_read = digitalRead(ENDSTOP);
+    if (endstop_read == 0) {
+      Serial.println("Endstop Triggered, setting new position");
+    }
+  }
+  Serial.println("Moving to top of the hour");
+  stepper.move(ENDSTOP_OFFSET);
+  while (stepper.distanceToGo() > 0) {
+    stepper.run();
+    yield();
+  }
+  stepper.setCurrentPosition(0);
+  stepper.disableOutputs();
+  end_trig = false;
+}
+
 void HandleTime() {
   time_min = ntp.minutes();
 
@@ -155,9 +189,7 @@ void setup() {
   ntp.ruleDST("CDT", Second, Sun, Mar, 2, -300);
   ntp.ruleSTD("CST",  First, Sun, Nov, 3, -360);
   ntp.begin(NTP_SERVER);
-  time_min_prev = ntp.minutes();
-  time_min = ntp.minutes();
-  time_min_set = ntp.minutes();
+  
 
   // Setup Motors
   #ifdef VERBOSE
@@ -179,6 +211,19 @@ void setup() {
   button_rvs.setLongClickDetectedHandler(JogRvs);
   button_rvs.setReleasedHandler(ButtonReleased);
   
+  // Setup End Stop
+  pinMode(ENDSTOP,INPUT_PULLUP);
+  Homing(); // Move to top of the hour
+  // Move to current minute
+  int homing_minute = ntp.minutes();
+  Serial.print("Moving to current minute, "); Serial.println(homing_minute);
+  makeAbsMove(homing_minute);
+  stepper.setCurrentPosition(0);
+  // Set time keeping
+  time_min_prev = ntp.minutes();
+  time_min = ntp.minutes();
+  time_min_set = ntp.minutes();
+
   #ifdef VERBOSE
     Serial.println("Moving on to main program");
   #endif

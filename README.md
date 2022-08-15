@@ -7,7 +7,4 @@ So far, I have:
   - migrated to PlatformIO (I'm not a fan of the Arduino IDE)
   - implemented standard libraries (such as AccelStepper and NTP)
   - added buttons to push forward/reverse
-
-## Intended Modifications
-Eventually I'll add some kind of feedback to "close the loop" for more accurate time. Most likely this will be a magnet/hall effect combination in the minute rotor.
-
+  - added hall effect sensor for setting and calibrating
