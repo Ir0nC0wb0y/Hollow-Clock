@@ -35,40 +35,46 @@ void MakeMove(int move_steps) {
 
 void RunRotation() {
   //Serial.println("Running Rotation");
-  // Rotate 1 hour + error
+  // Rotate 1 hour
   stepper.move(RotationFilter.Current());
 
-  bool endstop_current = true;
-  bool endstop_trigger = false;
+  bool endstop_current = endstop.IsTriggered(); // this should evaluate as false
+  //bool endstop_trigger = false;
   int rotation_steps = 0;
   while (stepper.distanceToGo() >= 0 ) {
     stepper.run();
     if (endstop.IsTriggered()) {
-      if (!endstop_current) {
-        // Stop at endstop
-        endstop_trigger = true;
+      if (endstop_current == false) {
+        Serial.print("DistanceToGo: "); Serial.println(stepper.distanceToGo());
         rotation_steps = stepper.currentPosition();
-        stepper.moveTo(stepper.currentPosition());
+        RotationFilter.Filter(rotation_steps);
+
+        // continue rotation
+        int remaining_steps = stepper.distanceToGo();
+        Serial.print("DistanceToGo: "); Serial.println(remaining_steps);
+        stepper.setCurrentPosition(0);
+        stepper.move(remaining_steps);
+        Serial.print("DistanceToGo: "); Serial.println(stepper.distanceToGo());
+
+        endstop_current = true;
       }
-    } else if (endstop_current == true) {
-      endstop_current = false;
+    //} else if (endstop_current == true) {
+    //  endstop_current = false;
     }
     yield();
   }
-  stepper.setCurrentPosition(0);
-  stepper.disableOutputs();
   
-  // set filter
-   RotationFilter.Filter(rotation_steps);
-
+  // Reduce motor heat while inactive
+  stepper.disableOutputs();
+ 
   // Output data
     // in format: Filter, Last Rotation, Error, Filter Change
     Serial.print("Filter "); Serial.print(RotationFilter.Current()); Serial.print(", Last Rotation "); Serial.print(rotation_steps); Serial.print(", Error "); Serial.print(RotationFilter.Current()-rotation_steps); Serial.print(", Filter Change "); Serial.println(RotationFilter.Current() - filter_last);
     filter_last = RotationFilter.Current();
 
   // Backup to remove uncertainty for next rotation
-    MakeMove(-1000);
-    endstop.GoHome(true);
+    //MakeMove(-1000);
+    //endstop.GoHome(true);
 }
 
 void setup() {
@@ -86,7 +92,9 @@ void setup() {
   endstop.Setup();
 
   // Go to minute 0 (from offset)
+  Serial.print("Moving to minute 0");
   MakeMove(ENDSTOP_OFFSET);
+  Serial.println("...Done!");
 
   // Prepare Loop
   loop_next = millis()+ LOOP_TIME;
