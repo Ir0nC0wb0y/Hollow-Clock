@@ -16,19 +16,24 @@
 
 
 class Homing {
-    public:
-        Homing();
-        void Setup();
-        void GoHome(bool slow_approach = false);
-        bool IsTriggered();
-        bool IsHomed();
-        void Handle();
+  public:
+    Homing();
+    void Setup();
+    void GoHome(bool slow_approach = false);
+    bool IsTriggered();
+    int  LastTrigger();
+    int  ZeroPos();
+    bool IsHomed();
+    bool Handle(bool report = false);
 
-
-    private:
-        bool _isHomed         =    false;
-        bool _end_current     =    false;
-        int  _last_trigger    =        0;
-        void _makeMove(int steps);
+  private:
+    bool _isHomed         =    false;
+    bool _end_current     =    false;
+    int  _last_trigger    =        0;
+    int _position_cur     =        0;
+    int _filter_last      =        0;
+    int _rotation_steps   =        0;
+    void _makeMove(int steps);
+    void _endReport(bool updated);
 
 };

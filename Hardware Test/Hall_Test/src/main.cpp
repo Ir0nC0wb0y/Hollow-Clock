@@ -22,8 +22,10 @@
   Homing endstop;
 
 // Loop
-  #define LOOP_TIME                35000
+  #define LOOP_TIME                 5000  // Schwaz 35 seconds, changed to 5 for testing
   unsigned long loop_next    =         0;
+  //int test_rotations         =         0;
+  //#define ROTATION_RESET               5  // How many full rotations until the clock resets (will be used later to reset the clock in the middle of the night)
 
 void MakeMove(int move_steps) {
   stepper.move(move_steps); // roughly half a minute backwards
@@ -46,12 +48,11 @@ void MakeMoveTo(int move_steps) {
 void RunRotation() {
   //Serial.println("Running Rotation");
   // Rotate 1 hour
-  stepper.move(RotationFilter.Current());
+  //stepper.move(RotationFilter.Current()); // This only incorporates the updated rotation steps
+  stepper.moveTo(endstop.ZeroPos() + RotationFilter.Current()); // New system to incorporate most recent (completed) endstop adjustment
   stepper.setMaxSpeed(STEPPER_SPEED);
 
-  //bool endstop_current = endstop.IsTriggered(); // this should evaluate as false
-  //bool endstop_trigger = false;
-  //int rotation_steps = 0;
+
   unsigned long while_break = 120000 + millis();
   while (stepper.distanceToGo() != 0 ) {
     stepper.run();
@@ -65,16 +66,8 @@ void RunRotation() {
   
   // Reduce motor heat while inactive
   stepper.disableOutputs();
-  //stepper.setCurrentPosition(0);
- 
-  // Output data
-    // in format: Filter, Last Rotation, Error, Filter Change
-    //Serial.print("Filter "); Serial.print(RotationFilter.Current()); Serial.print(", Last Rotation "); Serial.print(rotation_steps); Serial.print(", Error "); Serial.print(RotationFilter.Current()-rotation_steps); Serial.print(", Filter Change "); Serial.println(RotationFilter.Current() - filter_last);
-    //filter_last = RotationFilter.Current();
+  //test_rotations++;
 
-  // Backup to remove uncertainty for next rotation
-    //MakeMove(-1000);
-    //endstop.GoHome(true);
 }
 
 void setup() {
@@ -107,5 +100,13 @@ void loop() {
   if (millis() >= loop_next) {
     RunRotation();
     loop_next = millis() + LOOP_TIME;
+    /*if (test_rotations >= ROTATION_RESET) {
+      MakeMoveTo(endstop.ZeroPos());
+      stepper.setCurrentPosition(0); // Need to inform the Homing Class, may use that to update the current position, instead of doing it here
+      Serial.println();
+      Serial.print("Reset position after "); Serial.print(test_rotations); Serial.println(" turns");
+      Serial.println();
+      test_rotations = 0;
+    }*/
   }
 }

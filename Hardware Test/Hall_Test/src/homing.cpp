@@ -54,17 +54,26 @@ bool Homing::IsTriggered() {
   }
 }
 
+int Homing::LastTrigger() {
+  return _last_trigger;
+}
+
+int Homing::ZeroPos() {
+  return _last_trigger - ENDSTOP_OFFSET;
+}
+
 bool Homing::IsHomed() {
   return _isHomed;
 }
 
-void Homing::Handle() {
+bool Homing::Handle(bool report) {
+  bool end_trigger = false;
   
   if (IsTriggered()) {
       if (_end_current == false) {
-        int rotation_cur = stepper.currentPosition();
-        int filter_cur = RotationFilter.Current();
-        int rotation_steps = abs(rotation_cur - _last_trigger);
+        _position_cur = stepper.currentPosition();
+        _filter_last = RotationFilter.Current();
+        _rotation_steps = abs(_position_cur - _last_trigger);
         /*
         Serial.println();
         Serial.print("rotation_cur, filter_cur, rotation_steps, last_trigger: ");
@@ -74,26 +83,29 @@ void Homing::Handle() {
         Serial.println(_last_trigger);
         */
 
-        if (abs(rotation_steps - filter_cur) <= FILTER_LIMIT) {
-          RotationFilter.Filter(rotation_steps);
-          int filter_new = RotationFilter.Current();
-          Serial.print("Filter Updated, rotation: "); Serial.print(rotation_steps); Serial.print(", new filter: "); Serial.print(filter_new); Serial.print(", Error: "); Serial.print(filter_cur-rotation_steps); Serial.print(", Filter Change: "); Serial.println(filter_new-filter_cur);
+        if (abs(_rotation_steps - _filter_last) <= FILTER_LIMIT) {
+          RotationFilter.Filter(_rotation_steps); // Update filter
+          
+          _endReport(true);
           //stepper.setCurrentPosition(filter_new + ENDSTOP_OFFSET);
           //stepper.moveTo(filter_new);
         } else {
-          Serial.println("Filter not updated: ");
-          Serial.print("rotation_cur, filter_cur, rotation_steps, last_trigger: ");
-          Serial.print(rotation_cur); Serial.print(", ");
-          Serial.print(filter_cur); Serial.print(", ");
-          Serial.print(rotation_steps); Serial.print(", ");
-          Serial.println(_last_trigger);
+          _endReport(false);
+          
         }
-        _last_trigger = rotation_cur;
+        _last_trigger = _position_cur;
         _end_current = true;
+        end_trigger = true;
       }
   } else if (_end_current == true) {
     _end_current = false;
+
+    // Logic for ensuring zero position return stays true
+    // The problem this solves is the large offset between zero and endstop;
+    // the minutes between roughly 31 and 60 are going to try to go an extra rotation (every time, not just the first time)
   }
+
+  return end_trigger;
 
 }
 
@@ -103,4 +115,25 @@ void Homing::_makeMove(int steps) {
     stepper.run();
     yield();
   }
+}
+
+void Homing::_endReport(bool updated) {
+  if (updated) {
+    int filter_new = RotationFilter.Current();
+    Serial.print("Filter Updated: rotation steps "); Serial.print(_rotation_steps);
+    Serial.print(", new filter: "); Serial.print(filter_new);
+    Serial.print(", Error: "); Serial.print(_rotation_steps - _filter_last);
+    Serial.print(", Filter Change: "); Serial.print(filter_new - _filter_last);
+    Serial.print(", current position "); Serial.print(_position_cur);
+    Serial.println();
+
+  } else {
+    Serial.print("Filter not updated: current position "); Serial.print(_position_cur);
+    Serial.print(", cur filter "); Serial.print(_filter_last);
+    Serial.print(", rotation_steps "); Serial.print(_rotation_steps);
+    Serial.print(", last_trigger "); Serial.print(_last_trigger);
+    Serial.println();
+
+  }
+
 }
