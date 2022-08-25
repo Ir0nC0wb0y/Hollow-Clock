@@ -39,7 +39,7 @@ void Homing::GoHome(bool slow_approach) {
   }
 
 
-  stepper.setCurrentPosition(ENDSTOP_OFFSET);
+  stepper.setCurrentPosition(ENDSTOP_OFFSET); // to make the stepper position 0 to be minute zero
   stepper.disableOutputs();
   _last_trigger = ENDSTOP_OFFSET;
   _zero_pos = 0;

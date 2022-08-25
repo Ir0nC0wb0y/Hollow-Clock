@@ -69,6 +69,7 @@ void RunRotation() {
     }
   }
 
+  stepper.disableOutputs();
 }
 
 void RunToMinute(int minute) {
@@ -96,6 +97,8 @@ void RunToMinute(int minute) {
       break;
     }
   }
+
+  stepper.disableOutputs();
 }
 
 void setup() {
