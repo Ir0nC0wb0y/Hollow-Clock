@@ -3,7 +3,7 @@
 
 // Endstop
   #define ENDSTOP                     D1
-  #define ENDSTOP_OFFSET          -28211   // Steps from minute 0 to forward endstop trigger
+  #define ENDSTOP_OFFSET          -28100   // Steps from minute zero back to endstop
   #define ENDSTOP_INVERTED                 // Define to use inverted logic on Endstop Pin
 
   #define HOMING_FAST                800
@@ -33,6 +33,7 @@ class Homing {
     int _position_cur     =        0;
     int _filter_last      =        0;
     int _rotation_steps   =        0;
+    int _zero_pos         =        0;
     void _makeMove(int steps);
     void _endReport(bool updated);
 

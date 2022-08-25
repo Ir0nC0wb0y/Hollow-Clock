@@ -42,6 +42,7 @@ void Homing::GoHome(bool slow_approach) {
   stepper.setCurrentPosition(ENDSTOP_OFFSET);
   stepper.disableOutputs();
   _last_trigger = ENDSTOP_OFFSET;
+  _zero_pos = 0;
 
   _isHomed = true;
 }
@@ -59,7 +60,7 @@ int Homing::LastTrigger() {
 }
 
 int Homing::ZeroPos() {
-  return _last_trigger - ENDSTOP_OFFSET;
+  return _zero_pos;
 }
 
 bool Homing::IsHomed() {
@@ -68,11 +69,18 @@ bool Homing::IsHomed() {
 
 bool Homing::Handle(bool report) {
   bool end_trigger = false;
+
+  _position_cur = stepper.currentPosition();
+  _filter_last = RotationFilter.Current();
   
+  if (_position_cur >= _zero_pos + _filter_last) {
+    _zero_pos = _position_cur;
+  }
+
   if (IsTriggered()) {
       if (_end_current == false) {
-        _position_cur = stepper.currentPosition();
-        _filter_last = RotationFilter.Current();
+        
+        
         _rotation_steps = abs(_position_cur - _last_trigger);
         /*
         Serial.println();

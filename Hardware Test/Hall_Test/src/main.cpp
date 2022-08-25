@@ -22,8 +22,9 @@
   Homing endstop;
 
 // Loop
-  #define LOOP_TIME                 5000  // Schwaz 35 seconds, changed to 5 for testing
+  #define LOOP_TIME                  250  // Schwaz 35 seconds, changed to 5 for testing
   unsigned long loop_next    =         0;
+  int loop_minute            =         0;
   //int test_rotations         =         0;
   //#define ROTATION_RESET               5  // How many full rotations until the clock resets (will be used later to reset the clock in the middle of the night)
 
@@ -34,6 +35,8 @@ void MakeMove(int move_steps) {
     endstop.Handle();
     yield();
   }
+  // Reduce motor heat while inactive
+  stepper.disableOutputs();
 }
 
 void MakeMoveTo(int move_steps) {
@@ -43,6 +46,8 @@ void MakeMoveTo(int move_steps) {
     endstop.Handle();
     yield();
   }
+  // Reduce motor heat while inactive
+  stepper.disableOutputs();
 }
 
 void RunRotation() {
@@ -59,15 +64,38 @@ void RunRotation() {
     endstop.Handle();
     yield();
     if (millis() >= while_break) {
-      Serial.print("Breaking out of while, current distance to go: "); Serial.println(stepper.distanceToGo());
+      Serial.print("Breaking out of Rotation, current distance to go: "); Serial.println(stepper.distanceToGo());
       break;
     }
   }
-  
-  // Reduce motor heat while inactive
-  stepper.disableOutputs();
-  //test_rotations++;
 
+}
+
+void RunToMinute(int minute) {
+  minute = minute % 60;
+  if (minute == 0) {
+    minute = 60;
+  }
+  int minute_steps = RotationFilter.Current() * (float(minute) / 60.0);
+  stepper.moveTo(endstop.ZeroPos() + minute_steps);
+  stepper.setMaxSpeed(STEPPER_SPEED);
+
+  Serial.print("Moving to minute "); Serial.print(minute);
+  Serial.print(", distance to go "); Serial.print(stepper.distanceToGo());
+  Serial.print(", final position "); Serial.print(stepper.targetPosition());
+  Serial.print(", zero position "); Serial.print(endstop.ZeroPos());
+  Serial.println();
+
+  unsigned long while_break = 120000 + millis();
+  while (stepper.distanceToGo() != 0 ) {
+    stepper.run();
+    endstop.Handle();
+    yield();
+    if (millis() >= while_break) {
+      Serial.print("Breaking out of R2M, current distance to go: "); Serial.println(stepper.distanceToGo());
+      break;
+    }
+  }
 }
 
 void setup() {
@@ -98,7 +126,14 @@ void setup() {
 void loop() {
   // initiate process at interval
   if (millis() >= loop_next) {
-    RunRotation();
+    //RunRotation();
+
+    loop_minute = loop_minute + 1;
+    if (loop_minute > 60) {
+      loop_minute = 1;
+    }
+    RunToMinute(loop_minute);
+
     loop_next = millis() + LOOP_TIME;
     /*if (test_rotations >= ROTATION_RESET) {
       MakeMoveTo(endstop.ZeroPos());
