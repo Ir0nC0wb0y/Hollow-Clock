@@ -117,8 +117,8 @@ void setup() {
   stepper.setMaxSpeed(STEPPER_SPEED);
 
   // Go to minute 0
-  Serial.print("Moving to minute 0");
-  MakeMoveTo(0);
+  Serial.print("Moving to Zero Position");
+  MakeMoveTo(endstop.ZeroPos());
 
   Serial.println("...Done!");
 

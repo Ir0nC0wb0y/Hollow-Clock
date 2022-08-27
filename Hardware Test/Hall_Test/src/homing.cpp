@@ -74,7 +74,8 @@ bool Homing::Handle(bool report) {
   _filter_last = RotationFilter.Current();
   
   if (_position_cur >= _zero_pos + _filter_last) {
-    _zero_pos = _position_cur;
+    _zero_pos = _last_trigger - ENDSTOP_OFFSET; // Major update to zero position
+    Serial.print("Updated Zero Position "); Serial.println(_zero_pos);
   }
 
   if (IsTriggered()) {
@@ -93,6 +94,7 @@ bool Homing::Handle(bool report) {
 
         if (abs(_rotation_steps - _filter_last) <= FILTER_LIMIT) {
           RotationFilter.Filter(_rotation_steps); // Update filter
+          _zero_pos = _position_cur - (_filter_last + ENDSTOP_OFFSET); // Minor update to zero position.
           
           _endReport(true);
           //stepper.setCurrentPosition(filter_new + ENDSTOP_OFFSET);
@@ -101,6 +103,7 @@ bool Homing::Handle(bool report) {
           _endReport(false);
           
         }
+        
         _last_trigger = _position_cur;
         _end_current = true;
         end_trigger = true;
@@ -129,10 +132,11 @@ void Homing::_endReport(bool updated) {
   if (updated) {
     int filter_new = RotationFilter.Current();
     Serial.print("Filter Updated: rotation steps "); Serial.print(_rotation_steps);
-    Serial.print(", new filter: "); Serial.print(filter_new);
+    Serial.print(", new filter "); Serial.print(filter_new);
     Serial.print(", Error: "); Serial.print(_rotation_steps - _filter_last);
     Serial.print(", Filter Change: "); Serial.print(filter_new - _filter_last);
     Serial.print(", current position "); Serial.print(_position_cur);
+    Serial.print(", Zero Pos "); Serial.print(_zero_pos);
     Serial.println();
 
   } else {
@@ -140,6 +144,7 @@ void Homing::_endReport(bool updated) {
     Serial.print(", cur filter "); Serial.print(_filter_last);
     Serial.print(", rotation_steps "); Serial.print(_rotation_steps);
     Serial.print(", last_trigger "); Serial.print(_last_trigger);
+    Serial.print(", Zero Pos "); Serial.print(_zero_pos);
     Serial.println();
 
   }
