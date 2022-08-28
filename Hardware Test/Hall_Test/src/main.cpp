@@ -7,7 +7,7 @@
 // Clock
   // 4096 * 110 / 8 = 56320
   #define STEPS_PER_ROTATION        56320
-  #define FILTER_WEIGHT                10
+  #define FILTER_WEIGHT                25
   ExponentialFilter<int> RotationFilter(FILTER_WEIGHT,STEPS_PER_ROTATION);
   //int filter_last           =     STEPS_PER_ROTATION;
 
@@ -22,7 +22,7 @@
   Homing endstop;
 
 // Loop
-  #define LOOP_TIME                  250  // Schwaz 35 seconds, changed to 5 for testing
+  #define LOOP_TIME                 1000
   unsigned long loop_next    =         0;
   int loop_minute            =         0;
   //int test_rotations         =         0;
