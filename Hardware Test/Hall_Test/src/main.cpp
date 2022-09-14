@@ -1,8 +1,26 @@
 #include <Arduino.h>
+#include <WiFiManager.h>
+#include <NTP.h>
 #include <AccelStepper.h>
 #include <filter.h>
+#include <Button2.h>
 
 #include "homing.h"
+
+// WiFi
+  WiFiManager wm;
+  #define WIFI_CHECK_INTERVAL      900000
+  unsigned long wifi_check_next  =      0;
+
+// Time Keeping (NTP)
+  long utcOffsetInSeconds_DST    = -18000;
+  long utcOffsetInSeconds        = -21600;
+  #define NTP_UPDATE_INT           900000
+  #define NTP_SERVER             "north-america.pool.ntp.org"
+  int time_min_prev              =      0;
+  
+  WiFiUDP ntpUDP;
+  NTP ntp(ntpUDP);
 
 // Clock
   // 4096 * 110 / 8 = 56320
@@ -101,11 +119,43 @@ void RunToMinute(int minute) {
   stepper.disableOutputs();
 }
 
+void HandleTime() {
+  int time_min = ntp.minutes();
+  if (time_min != time_min_prev) {
+    RunToMinute(time_min);
+    time_min_prev = time_min;
+  }
+}
+
 void setup() {
   // Serial start
   Serial.begin(115200);
   Serial.println();
   Serial.println();
+
+  // WiFi Setup
+  Serial.println("Setting up WiFi: ");
+  wm.setConnectTimeout(20);
+  wm.setConfigPortalTimeout(300);
+
+  bool res;
+  res = wm.autoConnect("HollowClock3"); 
+  if (res) {
+      Serial.println("WiFi Connected Successfully!");
+  } else {
+      Serial.println("Failed to Connect WiFi!");
+      ESP.restart(); // In lieu of restarting (bootloop if WiFi unavailable), just don't use connected stuff
+  }
+  wifi_check_next = millis() + WIFI_CHECK_INTERVAL;
+  Serial.println();
+  
+
+  // NTP Setup
+  Serial.println("Setting up NTP");
+  ntp.updateInterval(NTP_UPDATE_INT); // set to update from ntp server every 900 seconds, or 15 minutes
+  ntp.ruleDST("CDT", Second, Sun, Mar, 2, -300);
+  ntp.ruleSTD("CST",  First, Sun, Nov, 3, -360);
+  ntp.begin(NTP_SERVER);
 
   // Motor Setup
   Serial.println("Setting up motor");
@@ -117,8 +167,8 @@ void setup() {
   stepper.setMaxSpeed(STEPPER_SPEED);
 
   // Go to minute 0
-  Serial.print("Moving to Zero Position");
-  MakeMoveTo(endstop.ZeroPos());
+  //Serial.print("Moving to Zero Position");
+  //MakeMoveTo(endstop.ZeroPos());
 
   Serial.println("...Done!");
 
@@ -127,24 +177,14 @@ void setup() {
 }
 
 void loop() {
-  // initiate process at interval
-  if (millis() >= loop_next) {
-    //RunRotation();
-
-    loop_minute = loop_minute + 1;
-    if (loop_minute > 60) {
-      loop_minute = 1;
+  ntp.update();
+  HandleTime();
+  
+  // Check WiFi Connection
+  if (millis() >= wifi_check_next) {
+    if (WiFi.status() != WL_CONNECTED) {
+      wm.autoConnect("HollowClock3");
     }
-    RunToMinute(loop_minute);
-
-    loop_next = millis() + LOOP_TIME;
-    /*if (test_rotations >= ROTATION_RESET) {
-      MakeMoveTo(endstop.ZeroPos());
-      stepper.setCurrentPosition(0); // Need to inform the Homing Class, may use that to update the current position, instead of doing it here
-      Serial.println();
-      Serial.print("Reset position after "); Serial.print(test_rotations); Serial.println(" turns");
-      Serial.println();
-      test_rotations = 0;
-    }*/
+    wifi_check_next = millis() + WIFI_CHECK_INTERVAL;
   }
 }
