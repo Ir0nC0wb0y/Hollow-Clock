@@ -7,6 +7,10 @@
 
 #include "homing.h"
 
+// Output options
+  #define VERBOSE_TIME               false
+  #define HOME_REPORT                false
+
 // WiFi
   WiFiManager wm;
   #define WIFI_CHECK_INTERVAL      900000
@@ -16,8 +20,11 @@
   long utcOffsetInSeconds_DST    = -18000;
   long utcOffsetInSeconds        = -21600;
   #define NTP_UPDATE_INT           900000
-  #define NTP_SERVER             "north-america.pool.ntp.org"
+  #define NTP_SERVER             "pool.ntp.org"
+  int time_hour_prev             =      0;
   int time_min_prev              =      0;
+  int time_sec_prev              =      0;
+  bool is_DST                    =   false;
   
   WiFiUDP ntpUDP;
   NTP ntp(ntpUDP);
@@ -30,7 +37,7 @@
   //int filter_last           =     STEPS_PER_ROTATION;
 
 // Motors
-  #define STEPPER_SPEED               800   // steps/s
+  #define STEPPER_SPEED              1200   // steps/s
   #define STEPPER_ACCEL               400   // steps/s2
   #define HALFSTEP 8
   #define FULLSTEP 4
@@ -99,11 +106,13 @@ void RunToMinute(int minute) {
   stepper.moveTo(endstop.ZeroPos() + minute_steps);
   stepper.setMaxSpeed(STEPPER_SPEED);
 
+  /*
   Serial.print("Moving to minute "); Serial.print(minute);
   Serial.print(", distance to go "); Serial.print(stepper.distanceToGo());
   Serial.print(", final position "); Serial.print(stepper.targetPosition());
   Serial.print(", zero position "); Serial.print(endstop.ZeroPos());
   Serial.println();
+  */
 
   unsigned long while_break = 120000 + millis();
   while (stepper.distanceToGo() != 0 ) {
@@ -120,10 +129,40 @@ void RunToMinute(int minute) {
 }
 
 void HandleTime() {
-  int time_min = ntp.minutes();
+  int time_hour  = ntp.hours();
+  int time_min   = ntp.minutes();
+  int time_sec   = ntp.seconds();
+
+  if (VERBOSE_TIME) {
+    if ( time_hour != time_hour_prev || time_min != time_min_prev || time_sec != time_sec_prev) {
+      time_hour_prev = time_hour;
+      //time_min_prev  = time_min;
+      time_sec_prev  = time_sec;
+      char time_buf[8];
+      sprintf(time_buf, "%02d:%02d:%02d",time_hour,time_min,time_sec);
+      Serial.println(time_buf);
+
+    }
+  }
+
   if (time_min != time_min_prev) {
+    Serial.print("Moving to minute: "); Serial.print(time_min); Serial.print(" ");
     RunToMinute(time_min);
+    Serial.println("... Done!");
     time_min_prev = time_min;
+  }
+}
+
+void HandleDST() {
+  bool now_DST = ntp.isDST();
+  if (is_DST != now_DST) {
+    Serial.print("Updating for DST");
+    if (now_DST = true) {
+      // go forward an hour
+    } else if (now_DST = false) {
+      // go back an hour
+    }
+    is_DST = now_DST;
   }
 }
 
@@ -156,6 +195,8 @@ void setup() {
   ntp.ruleDST("CDT", Second, Sun, Mar, 2, -300);
   ntp.ruleSTD("CST",  First, Sun, Nov, 3, -360);
   ntp.begin(NTP_SERVER);
+  is_DST = ntp.isDST();
+  Serial.print("On DST? "); Serial.print((is_DST) ? "Yes" : "No"); Serial.println();
 
   // Motor Setup
   Serial.println("Setting up motor");
@@ -164,13 +205,15 @@ void setup() {
 
   // Endstop Setup (and home)
   endstop.Setup();
+  endstop.HomeReport(HOME_REPORT);
   stepper.setMaxSpeed(STEPPER_SPEED);
 
   // Go to minute 0
   //Serial.print("Moving to Zero Position");
   //MakeMoveTo(endstop.ZeroPos());
 
-  Serial.println("...Done!");
+  Serial.println("Setup Complete!");
+  Serial.println();
 
   // Prepare Loop
   loop_next = millis()+ LOOP_TIME;
@@ -179,6 +222,7 @@ void setup() {
 void loop() {
   ntp.update();
   HandleTime();
+  HandleDST();
   
   // Check WiFi Connection
   if (millis() >= wifi_check_next) {

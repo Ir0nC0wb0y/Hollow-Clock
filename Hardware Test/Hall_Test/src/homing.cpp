@@ -18,7 +18,7 @@ void Homing::Setup() {
   Serial.print("...Homing");
   GoHome();
   Serial.print(".");
-  _makeMove(-1000); // back off roughly a minute to approach slower
+  _makeMove(-1000); // back off more than backlash to approach slower
   Serial.print(".");
   GoHome(true);   // slow approach endstop to avoid momentum of system
   Serial.println(".Homed!");
@@ -83,14 +83,6 @@ bool Homing::Handle(bool report) {
         
         
         _rotation_steps = abs(_position_cur - _last_trigger);
-        /*
-        Serial.println();
-        Serial.print("rotation_cur, filter_cur, rotation_steps, last_trigger: ");
-        Serial.print(rotation_cur); Serial.print(", ");
-        Serial.print(filter_cur); Serial.print(", ");
-        Serial.print(rotation_steps); Serial.print(", ");
-        Serial.println(_last_trigger);
-        */
 
         if (abs(_rotation_steps - _filter_last) <= FILTER_LIMIT) {
           RotationFilter.Filter(_rotation_steps); // Update filter
@@ -129,24 +121,29 @@ void Homing::_makeMove(int steps) {
 }
 
 void Homing::_endReport(bool updated) {
-  if (updated) {
-    int filter_new = RotationFilter.Current();
-    Serial.print("Filter Updated: rotation steps "); Serial.print(_rotation_steps);
-    Serial.print(", new filter "); Serial.print(filter_new);
-    Serial.print(", Error: "); Serial.print(_rotation_steps - _filter_last);
-    Serial.print(", Filter Change: "); Serial.print(filter_new - _filter_last);
-    Serial.print(", current position "); Serial.print(_position_cur);
-    Serial.print(", Zero Pos "); Serial.print(_zero_pos);
-    Serial.println();
+  if (_home_report) {
+    if (updated) {
+      int filter_new = RotationFilter.Current();
+      Serial.print("Filter Updated: rotation steps "); Serial.print(_rotation_steps);
+      Serial.print(", new filter "); Serial.print(filter_new);
+      Serial.print(", Error: "); Serial.print(_rotation_steps - _filter_last);
+      Serial.print(", Filter Change: "); Serial.print(filter_new - _filter_last);
+      Serial.print(", current position "); Serial.print(_position_cur);
+      Serial.print(", Zero Pos "); Serial.print(_zero_pos);
+      Serial.println();
 
-  } else {
-    Serial.print("Filter not updated: current position "); Serial.print(_position_cur);
-    Serial.print(", cur filter "); Serial.print(_filter_last);
-    Serial.print(", rotation_steps "); Serial.print(_rotation_steps);
-    Serial.print(", last_trigger "); Serial.print(_last_trigger);
-    Serial.print(", Zero Pos "); Serial.print(_zero_pos);
-    Serial.println();
+    } else {
+      Serial.print("Filter not updated: current position "); Serial.print(_position_cur);
+      Serial.print(", cur filter "); Serial.print(_filter_last);
+      Serial.print(", rotation_steps "); Serial.print(_rotation_steps);
+      Serial.print(", last_trigger "); Serial.print(_last_trigger);
+      Serial.print(", Zero Pos "); Serial.print(_zero_pos);
+      Serial.println();
 
+    }
   }
+}
 
+void Homing::HomeReport(bool report) {
+  _home_report = report;
 }

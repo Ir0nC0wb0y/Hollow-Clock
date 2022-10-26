@@ -25,6 +25,7 @@ class Homing {
     int  ZeroPos();
     bool IsHomed();
     bool Handle(bool report = false);
+    void HomeReport(bool report);
 
   private:
     bool _isHomed         =    false;
@@ -34,6 +35,7 @@ class Homing {
     int _filter_last      =        0;
     int _rotation_steps   =        0;
     int _zero_pos         =        0;
+    bool _home_report     =     true;
     void _makeMove(int steps);
     void _endReport(bool updated);
 
