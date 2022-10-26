@@ -3,7 +3,8 @@
 
 // Endstop
   #define ENDSTOP                     D1
-  #define ENDSTOP_OFFSET          -28211   // Steps from minute zero back to endstop (base -28211, adjust to get closer)
+  //#define ENDSTOP_OFFSET          -28211   // Steps from minute zero back to endstop (base -28211, adjust to get closer)
+  #define ENDSTOP_OFFSET           28109   // Default rotation - 28211
   #define ENDSTOP_INVERTED                 // Define to use inverted logic on Endstop Pin
 
   #define HOMING_FAST                800

@@ -157,12 +157,27 @@ void HandleDST() {
   bool now_DST = ntp.isDST();
   if (is_DST != now_DST) {
     Serial.print("Updating for DST");
-    if (now_DST = true) {
+    if (now_DST) {
       // go forward an hour
-    } else if (now_DST = false) {
+      stepper.move(RotationFilter.Current());
+    } else {
       // go back an hour
+      stepper.move(-1 * RotationFilter.Current());
     }
     is_DST = now_DST;
+
+    // make the move
+    unsigned long while_break = 120000 + millis();
+    while (stepper.distanceToGo() != 0 ) {
+      stepper.run();
+      endstop.Handle();
+      yield();
+      if (millis() >= while_break) {
+        Serial.print("Breaking out of DST Rotation, current distance to go: "); Serial.println(stepper.distanceToGo());
+        break;
+      }
+    }
+
   }
 }
 
