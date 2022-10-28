@@ -3,14 +3,14 @@
 
 // Endstop
   #define ENDSTOP                     D1
-  //#define ENDSTOP_OFFSET          -28211   // Steps from minute zero back to endstop (base -28211, adjust to get closer)
-  #define ENDSTOP_OFFSET           28109   // Default rotation - 28211
+  #define ENDSTOP_OFFSET           28100   // Steps from Zero forward to endstop
   #define ENDSTOP_INVERTED                 // Define to use inverted logic on Endstop Pin
 
-  #define HOMING_FAST                800
+  #define HOMING_FAST               1200
   #define HOMING_SLOW                200
 
-  #define FILTER_LIMIT              5000
+  #define FILTER_LIMIT             10000
+  #define FILTER_TOLERANCE           500
 
   extern AccelStepper stepper;
   extern ExponentialFilter<int> RotationFilter;
@@ -31,6 +31,7 @@ class Homing {
   private:
     bool _isHomed         =    false;
     bool _end_current     =    false;
+    int _homing_state     =        0;
     int  _last_trigger    =        0;
     int _position_cur     =        0;
     int _filter_last      =        0;

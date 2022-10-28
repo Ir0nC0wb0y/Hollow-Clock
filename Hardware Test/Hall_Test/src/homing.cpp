@@ -14,7 +14,7 @@ Homing::Homing() {
 void Homing::Setup() {
   Serial.print("Setting up Endstop");
   pinMode(ENDSTOP,INPUT);
-  _end_current = IsTriggered();
+  //_end_current = IsTriggered();
   Serial.print("...Homing");
   GoHome();
   Serial.print(".");
@@ -26,7 +26,6 @@ void Homing::Setup() {
 
 void Homing::GoHome(bool slow_approach) {
   //Serial.println("Running Home Process");
-  //int endstop_read = 1;
   if (slow_approach) {
     stepper.setSpeed(HOMING_SLOW);
   } else {
@@ -38,13 +37,15 @@ void Homing::GoHome(bool slow_approach) {
     yield();
   }
 
+  if (slow_approach) {
+    stepper.setCurrentPosition(ENDSTOP_OFFSET); // to make the stepper position 0 to be minute zero
+    stepper.disableOutputs();
+    _last_trigger = ENDSTOP_OFFSET;
+    _zero_pos = 0;
 
-  stepper.setCurrentPosition(ENDSTOP_OFFSET); // to make the stepper position 0 to be minute zero
-  stepper.disableOutputs();
-  _last_trigger = ENDSTOP_OFFSET;
-  _zero_pos = 0;
-
-  _isHomed = true;
+    _isHomed = true;
+    _homing_state = 1;
+  }
 }
 
 bool Homing::IsTriggered() {
@@ -73,39 +74,31 @@ bool Homing::Handle(bool report) {
   _position_cur = stepper.currentPosition();
   _filter_last = RotationFilter.Current();
   
-  if (_position_cur >= _zero_pos + _filter_last) {
-    _zero_pos = _last_trigger - ENDSTOP_OFFSET; // Major update to zero position
+  if (_position_cur >= _zero_pos + _filter_last - FILTER_TOLERANCE) {
+    // This only triggers between 59 and 60 when commanded to go to 60, this needs to be more robust (say, if SPOOF is 57 to 02)
+    _zero_pos = (_last_trigger - ENDSTOP_OFFSET) + _filter_last;
     Serial.print("Updated Zero Position "); Serial.println(_zero_pos);
   }
 
   if (IsTriggered()) {
-      if (_end_current == false) {
-        
-        
-        _rotation_steps = abs(_position_cur - _last_trigger);
+    if (!_end_current) {
+      _rotation_steps = abs(_position_cur - _last_trigger);
 
-        if (abs(_rotation_steps - _filter_last) <= FILTER_LIMIT) {
-          RotationFilter.Filter(_rotation_steps); // Update filter
-          _zero_pos = _position_cur + (RotationFilter.Current() - ENDSTOP_OFFSET); // Minor update to zero position.
-          
-          _endReport(true);
-          //stepper.setCurrentPosition(filter_new + ENDSTOP_OFFSET);
-          //stepper.moveTo(filter_new);
-        } else {
-          _endReport(false);
-          
-        }
-        
-        _last_trigger = _position_cur;
-        _end_current = true;
-        end_trigger = true;
+      if (abs(_rotation_steps - _filter_last) <= FILTER_LIMIT) {
+        RotationFilter.Filter(_rotation_steps); // Update filter
+        _zero_pos = _position_cur - ENDSTOP_OFFSET;
+        _endReport(true);
+      } else {
+        _endReport(false);
       }
-  } else if (_end_current == true) {
+      
+      _last_trigger = _position_cur;
+      _end_current = true;
+      end_trigger = true;
+    }
+  } else {
     _end_current = false;
-
-    // Logic for ensuring zero position return stays true
-    // The problem this solves is the large offset between zero and endstop;
-    // the minutes between roughly 31 and 60 are going to try to go an extra rotation (every time, not just the first time)
+    // _end_current is necessary to account for the non zero width of the sensor trigger area
   }
 
   return end_trigger;

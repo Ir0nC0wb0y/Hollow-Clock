@@ -8,7 +8,7 @@
 #include "homing.h"
 
 // Output options
-  #define VERBOSE_TIME               false
+  //#define VERBOSE_TIME
   #define HOME_REPORT
 
 // WiFi
@@ -38,7 +38,7 @@
 
 // Motors
   #define STEPPER_SPEED              1200   // steps/s
-  #define STEPPER_ACCEL               400   // steps/s2
+  #define STEPPER_ACCEL               600   // steps/s2
   #define HALFSTEP 8
   #define FULLSTEP 4
   AccelStepper stepper(HALFSTEP, D5, D7, D6, D8);
@@ -47,12 +47,18 @@
   Homing endstop;
 
 // Loop
-  #define LOOP_TIME                 1000
-  unsigned long loop_next    =         0;
-  int loop_minute            =         0;
-  //int test_rotations         =         0;
-  //#define ROTATION_RESET               5  // How many full rotations until the clock resets (will be used later to reset the clock in the middle of the night)
+  int minute_last              =         0;
 
+  //Spoof Time
+  #define SPOOF
+  #ifdef SPOOF
+    #define SPOOF_TIME                1500
+    #define SPOOF_MINUTES                1
+    unsigned long spoof_next   =         0;
+    int spoof_minute           =         0;
+  #endif
+
+/*
 void MakeMove(int move_steps) {
   stepper.move(move_steps); // roughly half a minute backwards
   while (stepper.distanceToGo() != 0) {
@@ -73,7 +79,7 @@ void MakeMoveTo(int move_steps) {
   }
   // Reduce motor heat while inactive
   stepper.disableOutputs();
-}
+} */
 
 void RunRotation() {
   //Serial.println("Running Rotation");
@@ -103,16 +109,19 @@ void RunToMinute(int minute) {
     minute = 60;
   }
   int minute_steps = RotationFilter.Current() * (float(minute) / 60.0);
+  //if (minute < minute_last) {
+  //  minute_steps = minute_steps + RotationFilter.Current();
+  //}
   stepper.moveTo(endstop.ZeroPos() + minute_steps);
   stepper.setMaxSpeed(STEPPER_SPEED);
 
-  /*
-  Serial.print("Moving to minute "); Serial.print(minute);
-  Serial.print(", distance to go "); Serial.print(stepper.distanceToGo());
-  Serial.print(", final position "); Serial.print(stepper.targetPosition());
-  Serial.print(", zero position "); Serial.print(endstop.ZeroPos());
-  Serial.println();
-  */
+  #ifdef SPOOF
+    Serial.print("Moving to minute "); Serial.print(minute);
+    Serial.print(", distance to go "); Serial.print(stepper.distanceToGo());
+    Serial.print(", final position "); Serial.print(stepper.targetPosition());
+    Serial.print(", zero position "); Serial.print(endstop.ZeroPos());
+    Serial.println();
+  #endif
 
   unsigned long while_break = 120000 + millis();
   while (stepper.distanceToGo() != 0 ) {
@@ -125,15 +134,16 @@ void RunToMinute(int minute) {
     }
   }
 
+  minute_last = minute;
   stepper.disableOutputs();
 }
 
 void HandleTime() {
-  int time_hour  = ntp.hours();
   int time_min   = ntp.minutes();
-  int time_sec   = ntp.seconds();
-
-  if (VERBOSE_TIME) {
+  
+  #ifdef VERBOSE_TIME
+    int time_hour  = ntp.hours();
+    int time_sec   = ntp.seconds();
     if ( time_hour != time_hour_prev || time_min != time_min_prev || time_sec != time_sec_prev) {
       time_hour_prev = time_hour;
       //time_min_prev  = time_min;
@@ -143,7 +153,7 @@ void HandleTime() {
       Serial.println(time_buf);
 
     }
-  }
+  #endif
 
   if (time_min != time_min_prev) {
     Serial.print("Moving to minute: "); Serial.print(time_min); Serial.print(" ");
@@ -152,6 +162,8 @@ void HandleTime() {
     time_min_prev = time_min;
   }
 }
+
+
 
 void HandleDST() {
   bool now_DST = ntp.isDST();
@@ -180,6 +192,18 @@ void HandleDST() {
 
   }
 }
+
+#ifdef SPOOF
+void SpoofTime() {
+  if (millis() >= spoof_next) {
+    Serial.print("Spoofing to "); Serial.println(spoof_minute);
+    RunToMinute(spoof_minute);
+    spoof_minute = spoof_minute + SPOOF_MINUTES;
+    spoof_next = millis() + SPOOF_TIME;
+    Serial.println();
+  }
+}
+#endif
 
 void setup() {
   // Serial start
@@ -233,12 +257,18 @@ void setup() {
   Serial.println();
 
   // Prepare Loop
-  loop_next = millis()+ LOOP_TIME;
+  //loop_next = millis()+ LOOP_TIME;
+  spoof_next = millis() + SPOOF_TIME;
+  spoof_minute = ntp.minutes();
 }
 
 void loop() {
   ntp.update();
-  HandleTime();
+  #ifndef SPOOF
+    HandleTime();
+  #else
+    SpoofTime();
+  #endif
   HandleDST();
   
   // Check WiFi Connection
