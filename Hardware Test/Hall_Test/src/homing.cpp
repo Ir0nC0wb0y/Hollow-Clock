@@ -86,7 +86,7 @@ bool Homing::Handle(bool report) {
 
         if (abs(_rotation_steps - _filter_last) <= FILTER_LIMIT) {
           RotationFilter.Filter(_rotation_steps); // Update filter
-          _zero_pos = _position_cur + (_filter_last - ENDSTOP_OFFSET); // Minor update to zero position.
+          _zero_pos = _position_cur + (RotationFilter.Current() - ENDSTOP_OFFSET); // Minor update to zero position.
           
           _endReport(true);
           //stepper.setCurrentPosition(filter_new + ENDSTOP_OFFSET);
