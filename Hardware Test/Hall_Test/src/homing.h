@@ -36,7 +36,7 @@ class Homing {
     int _filter_last      =        0;
     int _rotation_steps   =        0;
     int _zero_pos         =        0;
-    bool _home_report     =     true;
+    bool _home_report     =    false;
     void _makeMove(int steps);
     void _endReport(bool updated);
 

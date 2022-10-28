@@ -9,7 +9,7 @@
 
 // Output options
   #define VERBOSE_TIME               false
-  #define HOME_REPORT                false
+  #define HOME_REPORT
 
 // WiFi
   WiFiManager wm;
@@ -220,7 +220,9 @@ void setup() {
 
   // Endstop Setup (and home)
   endstop.Setup();
-  endstop.HomeReport(HOME_REPORT);
+  #ifdef HOME_REPORT
+    endstop.HomeReport(true);
+  #endif
   stepper.setMaxSpeed(STEPPER_SPEED);
 
   // Go to minute 0
