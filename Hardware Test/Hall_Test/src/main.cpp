@@ -256,10 +256,10 @@ void setup() {
   Serial.println("Setup Complete!");
   Serial.println();
 
-  // Prepare Loop
-  //loop_next = millis()+ LOOP_TIME;
-  spoof_next = millis() + SPOOF_TIME;
-  spoof_minute = ntp.minutes();
+  #ifdef SPOOF
+    spoof_next = millis() + SPOOF_TIME;
+    spoof_minute = ntp.minutes();
+  #endif
 }
 
 void loop() {
