@@ -50,7 +50,7 @@
   int minute_last              =         0;
 
   //Spoof Time
-  #define SPOOF
+  //#define SPOOF                              // Uncomment this for faster testing
   #ifdef SPOOF
     #define SPOOF_TIME                1500
     #define SPOOF_MINUTES                1
